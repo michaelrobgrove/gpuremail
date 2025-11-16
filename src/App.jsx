@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Star, Trash2, Menu, Search, Settings, Plus, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, RefreshCw, X, Reply, ReplyAll, Forward } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://gpuremail-backend.onrender.com";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://gpuremail-backend.fly.dev/";
 
 const THEMES = {
   voyage: {
