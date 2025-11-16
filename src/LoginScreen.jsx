@@ -1,45 +1,62 @@
-import React, { useState } from 'react';
+import { useState } from "react";
 
-// This is the new component to handle login state and UI
-export default function LoginScreen({ onLogin, loading }) {
-  const [loginData, setLoginData] = useState({
-    email: '',
-    password: ''
-  });
+export default function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const submitLogin = () => {
-    onLogin(loginData);
+  const handleLogin = async () => {
+    setError("");
+
+    try {
+      const res = await fetch("https://gpuremail-backend.onrender.com/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem("email", email);
+        localStorage.setItem("password", password);
+        onLogin();
+      } else {
+        setError("Invalid login credentials.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Server error.");
+    }
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 rounded-lg p-8 w-full max-w-md border border-zinc-800">
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2 text-center">GPureMail</h1>
-        <p className="text-zinc-400 text-center mb-6 text-sm">Sign in with your PurelyMail account</p>
-        <div className="space-y-4">
-          <input 
-            value={loginData.email} 
-            onChange={e => setLoginData({...loginData, email: e.target.value})} 
-            type="email" 
-            placeholder="Email Address" 
-            className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500" 
-          />
-          <input 
-            value={loginData.password} 
-            onChange={e => setLoginData({...loginData, password: e.target.value})} 
-            type="password" 
-            placeholder="Password" 
-            className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500" 
-          />
-          <button 
-            onClick={submitLogin} 
-            disabled={loading} 
-            className="w-full bg-zinc-700 hover:bg-zinc-600 text-zinc-100 py-3 rounded font-medium disabled:opacity-50 transition-colors"
-          >
-            {loading ? 'Connecting...' : 'Sign In'}
-          </button>
-        </div>
-      </div>
+    <div className="flex flex-col items-center p-6 mt-20">
+      <h1 className="text-3xl font-bold mb-4">GPureMail Login</h1>
+
+      {error && <p className="text-red-500 mb-2">{error}</p>}
+
+      <input
+        className="border p-2 mb-2 w-80"
+        placeholder="Email Address"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
+      <input
+        type="password"
+        className="border p-2 mb-2 w-80"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+
+      <button
+        onClick={handleLogin}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >
+        Log In
+      </button>
     </div>
   );
 }
