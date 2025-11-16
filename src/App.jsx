@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Send, Inbox, Star, Clock, Trash2, Menu, Search, Settings, Plus, Paperclip, Image, Smile, ChevronLeft, ChevronRight, LogOut, UserPlus } from 'lucide-react';
+import LoginScreen from './LoginScreen.jsx'; // Import the new component
 
 const API_BASE = 'https://gpuremail-backend.onrender.com/api';
 
@@ -37,13 +38,19 @@ export default function GPureMail() {
           password: credentials.password
         })
       });
+
+      // Added error handling for bad responses
+      if (!res.ok) {
+        throw new Error('Authentication failed');
+      }
+
       const data = await res.json();
       
       if (data.success) {
         const newAccount = { 
           id: crypto.randomUUID(),
           email: credentials.email,
-          password: btoa(credentials.password)
+          password: btoa(credentials.password) // Note: btoa is not secure storage
         };
         const updated = [...accounts, newAccount];
         setAccounts(updated);
@@ -51,9 +58,12 @@ export default function GPureMail() {
         setCurrentAccount(newAccount);
         setShowLogin(false);
         fetchEmails(newAccount);
+      } else {
+        throw new Error(data.error || 'Authentication failed');
       }
     } catch (err) {
       console.error('Login failed:', err);
+      // You could add a user-facing error message here
     }
     setLoading(false);
   };
@@ -66,7 +76,7 @@ export default function GPureMail() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: account.email,
-          password: atob(account.password)
+          password: atob(account.password) // Note: atob from insecure storage
         })
       });
       const data = await res.json();
@@ -114,47 +124,10 @@ export default function GPureMail() {
     }
   };
 
+  // The conditional render now calls the new component
+  // This fixes the React Hook error
   if (showLogin) {
-    const [loginData, setLoginData] = useState({
-      email: '',
-      password: ''
-    });
-
-    const submitLogin = () => {
-      handleLogin(loginData);
-    };
-
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        <div className="bg-zinc-900 rounded-lg p-8 w-full max-w-md border border-zinc-800">
-          <h1 className="text-3xl font-bold text-zinc-100 mb-2 text-center">GPureMail</h1>
-          <p className="text-zinc-400 text-center mb-6 text-sm">Sign in with your PurelyMail account</p>
-          <div className="space-y-4">
-            <input 
-              value={loginData.email} 
-              onChange={e => setLoginData({...loginData, email: e.target.value})} 
-              type="email" 
-              placeholder="Email Address" 
-              className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500" 
-            />
-            <input 
-              value={loginData.password} 
-              onChange={e => setLoginData({...loginData, password: e.target.value})} 
-              type="password" 
-              placeholder="Password" 
-              className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500" 
-            />
-            <button 
-              onClick={submitLogin} 
-              disabled={loading} 
-              className="w-full bg-zinc-700 hover:bg-zinc-600 text-zinc-100 py-3 rounded font-medium disabled:opacity-50 transition-colors"
-            >
-              {loading ? 'Connecting...' : 'Sign In'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoginScreen onLogin={handleLogin} loading={loading} />;
   }
 
   return (
