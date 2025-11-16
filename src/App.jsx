@@ -638,15 +638,15 @@ function EmailList({ emails, loading, selectedEmail, unreadOnly, pagination, onU
         <div className="flex gap-2 items-center">
           <button
             onClick={() => onUnreadOnlyChange(false)}
-            className={`px-3 py-1.5 rounded text-sm transition ${!unreadOnly ? `${theme.active} ${theme.text}` : `${theme.buttonSecondary} ${theme.textSecondary}`}`}
+            className={`flex-1 px-3 py-2 rounded text-sm font-medium transition ${!unreadOnly ? `${theme.button} ${theme.text} shadow-lg` : `${theme.buttonSecondary} ${theme.textSecondary} hover:bg-slate-600`}`}
           >
             All
           </button>
           <button
             onClick={() => onUnreadOnlyChange(true)}
-            className={`px-3 py-1.5 rounded text-sm transition ${unreadOnly ? `${theme.active} ${theme.text}` : `${theme.buttonSecondary} ${theme.textSecondary}`}`}
+            className={`flex-1 px-3 py-2 rounded text-sm font-medium transition ${unreadOnly ? `${theme.button} ${theme.text} shadow-lg` : `${theme.buttonSecondary} ${theme.textSecondary} hover:bg-slate-600`}`}
           >
-            Unread {unreadCount > 0 && <span className={`ml-1 ${theme.buttonSecondary} px-1.5 py-0.5 rounded text-xs`}>{unreadCount}</span>}
+            Unread {unreadCount > 0 && <span className={`ml-1 ${unreadOnly ? 'bg-cyan-700' : 'bg-slate-600'} px-1.5 py-0.5 rounded text-xs font-bold`}>{unreadCount}</span>}
           </button>
         </div>
       </div>
