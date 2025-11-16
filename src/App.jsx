@@ -111,6 +111,22 @@ export default function GPureMail() {
     setLoading(false);
   };
 
+  const fetchEmailBody = async (emailObj) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/emails/${emailObj.id}?folder=${selectedFolder}`, {
+        headers: {
+          "x-email": currentAccount.email,
+          "x-password": atob(currentAccount.password),
+        },
+      });
+      const data = await res.json();
+      return { ...emailObj, bodyText: data.bodyText, bodyHTML: data.bodyHTML };
+    } catch (err) {
+      console.error("Fetch body failed:", err);
+      return emailObj;
+    }
+  };
+
   const markRead = async (emailObj) => {
     try {
       await fetch(`${API_BASE}/api/emails/mark-read`, {
