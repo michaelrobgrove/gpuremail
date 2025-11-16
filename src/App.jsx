@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Inbox, Star, Trash2, Menu, Search, Settings, Plus, Paperclip, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, AlertOctagon, RefreshCw, X } from 'lucide-react';
+import { Send, Star, Trash2, Menu, Search, Settings, Plus, Paperclip, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, AlertOctagon, RefreshCw, X } from 'lucide-react';
 
 const API_BASE = "https://gpuremail-backend.onrender.com";
 
@@ -8,7 +8,6 @@ export default function GPureMail() {
   const [currentAccount, setCurrentAccount] = useState(null);
   const [emails, setEmails] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, hasMore: false });
-  const [unreadOnly, setUnreadOnly] = useState(false);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("INBOX");
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -40,13 +39,19 @@ export default function GPureMail() {
     setLoading(true);
     setError(null);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
       const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
+        signal: controller.signal
       });
 
+      clearTimeout(timeout);
       const data = await res.json();
+      
       if (data.success) {
         const newAccount = {
           id: crypto.randomUUID(),
@@ -66,7 +71,11 @@ export default function GPureMail() {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Connection error. Check if backend is running.");
+      if (err.name === 'AbortError') {
+        setError("Connection timeout. Server may be slow.");
+      } else {
+        setError("Connection error. Backend may be offline.");
+      }
     }
     setLoading(false);
   };
@@ -90,25 +99,39 @@ export default function GPureMail() {
     setLoading(true);
     setError(null);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
       const res = await fetch(`${API_BASE}/api/emails`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: account.email,
           password: atob(account.password),
-          folder
+          folder,
+          page: 1,
+          pageSize: 25
         }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeout);
       
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
       
       const data = await res.json();
-      setEmails(data || []);
+      setEmails(data.emails || []);
+      setPagination(data.pagination || { page: 1, totalPages: 1, hasMore: false });
     } catch (err) {
       console.error("Fetch error:", err);
-      setError("Failed to load emails: " + err.message);
+      if (err.name === 'AbortError') {
+        setError("Timeout loading emails. Server is slow.");
+      } else {
+        setError("Failed to load emails: " + err.message);
+      }
+      setEmails([]);
     }
     setLoading(false);
   };
@@ -163,25 +186,6 @@ export default function GPureMail() {
       }
     } catch (err) {
       console.error("Star failed:", err);
-    }
-  };
-
-  const markAsSpam = async (emailObj) => {
-    if (!window.confirm("Mark as spam?")) return;
-    try {
-      await fetch(`${API_BASE}/api/emails/spam`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-email": currentAccount.email,
-          "x-password": atob(currentAccount.password),
-        },
-        body: JSON.stringify({ uid: emailObj.id }),
-      });
-      setEmails((prev) => prev.filter((e) => e.id !== emailObj.id));
-      setSelectedEmail(null);
-    } catch (err) {
-      console.error("Spam failed:", err);
     }
   };
 
@@ -268,7 +272,7 @@ export default function GPureMail() {
   };
 
   if (showLogin) {
-    return <LoginScreen onLogin={handleLogin} loading={loading} error={error} />;
+    return <LoginScreen onLogin={handleLogin} onCancel={() => setShowLogin(false)} loading={loading} error={error} hasAccounts={accounts.length > 0} />;
   }
 
   if (showSettings) {
@@ -277,12 +281,10 @@ export default function GPureMail() {
 
   return (
     <div className={`flex h-screen bg-zinc-950 text-zinc-100 bg-gradient-to-br ${getThemeColors()}`}>
-      {/* Mobile Overlay */}
       {sidebarOpen && window.innerWidth <= 768 && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-0 md:w-16'} fixed md:relative z-50 h-full bg-zinc-900 border-r border-zinc-800 transition-all duration-300 flex flex-col overflow-hidden`}>
         <div className="p-4 flex items-center justify-between border-b border-zinc-800 shrink-0">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-zinc-800 rounded">
@@ -356,17 +358,13 @@ export default function GPureMail() {
         )}
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar 
-          currentAccount={currentAccount} 
-          sidebarOpen={sidebarOpen} 
-          onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-        />
+        <TopBar currentAccount={currentAccount} sidebarOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         {error && (
-          <div className="bg-red-900 border-b border-red-700 p-4 text-sm">
-            {error}
+          <div className="bg-red-900 border-b border-red-700 p-4 text-sm flex justify-between items-center">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-red-200 hover:text-white">×</button>
           </div>
         )}
 
@@ -389,7 +387,6 @@ export default function GPureMail() {
               onBack={() => setSelectedEmail(null)}
               onDelete={() => deleteEmail(selectedEmail)}
               onStar={() => toggleStar(selectedEmail)}
-              onSpam={() => markAsSpam(selectedEmail)}
               onReply={() => {
                 setReplyMode(selectedEmail);
                 setComposing(true);
@@ -423,14 +420,21 @@ export default function GPureMail() {
   );
 }
 
-function LoginScreen({ onLogin, loading, error }) {
+function LoginScreen({ onLogin, onCancel, loading, error, hasAccounts }) {
   const [loginData, setLoginData] = useState({ email: "", password: "" });
 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       <div className="bg-zinc-900 rounded-lg p-8 w-full max-w-md border border-zinc-800">
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2 text-center">GPureMail</h1>
-        <p className="text-zinc-400 text-center mb-6 text-sm">Sign in with your PurelyMail account</p>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-zinc-100 mb-2">GPureMail</h1>
+            <p className="text-zinc-400 text-sm">Sign in with PurelyMail</p>
+          </div>
+          {hasAccounts && (
+            <button onClick={onCancel} className="text-zinc-400 hover:text-zinc-100 text-2xl">×</button>
+          )}
+        </div>
         
         {error && <div className="bg-red-900 text-red-100 p-3 rounded mb-4 text-sm">{error}</div>}
         
@@ -440,22 +444,24 @@ function LoginScreen({ onLogin, loading, error }) {
             onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
             type="email"
             placeholder="Email Address"
-            className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500"
+            disabled={loading}
+            className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500 disabled:opacity-50"
           />
           <input
             value={loginData.password}
             onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
             type="password"
             placeholder="Password"
+            disabled={loading}
             onKeyPress={(e) => e.key === 'Enter' && !loading && onLogin(loginData)}
-            className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500"
+            className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500 disabled:opacity-50"
           />
           <button
             onClick={() => onLogin(loginData)}
             disabled={loading}
             className="w-full bg-zinc-700 hover:bg-zinc-600 text-zinc-100 py-3 rounded font-medium disabled:opacity-50 transition-colors"
           >
-            {loading ? "Connecting…" : "Sign In"}
+            {loading ? "Connecting..." : "Sign In"}
           </button>
         </div>
       </div>
@@ -570,7 +576,7 @@ function EmailList({ emails, loading, setSelectedEmail }) {
   );
 }
 
-function EmailView({ email, onBack, onDelete, onStar, onSpam, onReply, onReplyAll, onForward }) {
+function EmailView({ email, onBack, onDelete, onStar, onReply, onReplyAll, onForward }) {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
       <div className="p-4 md:p-6 border-b border-zinc-800 shrink-0">
@@ -593,9 +599,6 @@ function EmailView({ email, onBack, onDelete, onStar, onSpam, onReply, onReplyAl
           <div className="flex gap-2 shrink-0">
             <button onClick={onStar} className="p-2 hover:bg-zinc-800 rounded">
               <Star size={20} className={email.starred ? "fill-yellow-500 text-yellow-500" : "text-zinc-500"} />
-            </button>
-            <button onClick={onSpam} className="p-2 hover:bg-zinc-800 rounded hidden md:block">
-              <AlertOctagon size={20} className="text-zinc-500" />
             </button>
             <button onClick={onDelete} className="p-2 hover:bg-zinc-800 rounded">
               <Trash2 size={20} className="text-zinc-500" />
