@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Star, Trash2, Menu, Search, Settings, Plus, Paperclip, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, AlertOctagon, RefreshCw, X } from 'lucide-react';
+import { Send, Star, Trash2, Menu, Search, Settings, Plus, Paperclip, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, RefreshCw, X } from 'lucide-react';
 
 const API_BASE = "https://gpuremail-backend.onrender.com";
 
@@ -31,7 +31,7 @@ export default function GPureMail() {
         setCurrentAccount(accts[0]);
         setShowLogin(false);
         fetchFolders(accts[0]);
-        fetchEmails(accts[0], "INBOX");
+        fetchEmails(accts[0], "INBOX", 1);
       }
     }
   }, []);
@@ -66,7 +66,7 @@ export default function GPureMail() {
         setCurrentAccount(newAccount);
         setShowLogin(false);
         fetchFolders(newAccount);
-        fetchEmails(newAccount, "INBOX");
+        fetchEmails(newAccount, "INBOX", 1);
       } else {
         setError("Login failed: " + (data.error || "Invalid credentials"));
       }
@@ -96,9 +96,10 @@ export default function GPureMail() {
     }
   };
 
-  const fetchEmails = async (account, folder) => {
+  const fetchEmails = async (account, folder, page = 1) => {
     setLoading(true);
     setError(null);
+    setEmails([]);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
@@ -110,8 +111,9 @@ export default function GPureMail() {
           email: account.email,
           password: atob(account.password),
           folder,
-          page: 1,
-          pageSize: 25
+          page,
+          pageSize: 25,
+          unreadOnly
         }),
         signal: controller.signal
       });
@@ -212,6 +214,7 @@ export default function GPureMail() {
     setSelectedEmail(null);
     setComposing(false);
     setSelectedFolder("INBOX");
+    setUnreadOnly(false);
     setPagination({ page: 1, totalPages: 1, hasMore: false });
     fetchFolders(account);
     fetchEmails(account, "INBOX", 1);
@@ -336,6 +339,7 @@ export default function GPureMail() {
               onClick={() => {
                 setSelectedFolder(folder.name);
                 setSelectedEmail(null);
+                setUnreadOnly(false);
                 setPagination({ page: 1, totalPages: 1, hasMore: false });
                 fetchEmails(currentAccount, folder.name, 1);
                 if (window.innerWidth <= 768) setSidebarOpen(false);
@@ -546,7 +550,7 @@ function TopBar({ currentAccount, sidebarOpen, onMenuClick }) {
   );
 }
 
-function EmailList({ emails, loading, selectedEmail, unreadOnly, onUnreadOnlyChange, setSelectedEmail }) {
+function EmailList({ emails, loading, selectedEmail, unreadOnly, pagination, onUnreadOnlyChange, onPageChange, setSelectedEmail }) {
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -566,10 +570,23 @@ function EmailList({ emails, loading, selectedEmail, unreadOnly, onUnreadOnlyCha
     }
   };
 
+  const formatFullDate = (timestamp) => {
+    return new Date(timestamp).toLocaleString([], { 
+      weekday: 'short', 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  const unreadCount = emails.filter(e => e.unread).length;
+
   return (
     <div className={`${selectedEmail ? 'hidden md:flex' : 'flex'} w-full md:w-96 border-r border-zinc-800 flex-col`}>
       <div className="p-3 border-b border-zinc-800 shrink-0">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button
             onClick={() => onUnreadOnlyChange(false)}
             className={`px-3 py-1.5 rounded text-sm transition-colors ${!unreadOnly ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
@@ -580,7 +597,7 @@ function EmailList({ emails, loading, selectedEmail, unreadOnly, onUnreadOnlyCha
             onClick={() => onUnreadOnlyChange(true)}
             className={`px-3 py-1.5 rounded text-sm transition-colors ${unreadOnly ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
           >
-            Unread
+            Unread {unreadCount > 0 && <span className="ml-1 bg-zinc-600 px-1.5 py-0.5 rounded text-xs">{unreadCount}</span>}
           </button>
         </div>
       </div>
@@ -611,7 +628,7 @@ function EmailList({ emails, loading, selectedEmail, unreadOnly, onUnreadOnlyCha
                       {email.from}
                     </span>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-zinc-500" title={formatFullDate(email.timestamp)}>
                         {formatDate(email.timestamp)}
                       </span>
                       {email.starred && <Star size={14} className="text-yellow-500 fill-yellow-500" />}
@@ -633,14 +650,14 @@ function EmailList({ emails, loading, selectedEmail, unreadOnly, onUnreadOnlyCha
 
 function EmailView({ email, onBack, onDelete, onStar, onReply, onReplyAll, onForward }) {
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
-      <div className="p-4 md:p-6 border-b border-zinc-800 shrink-0">
+    <div className="flex-1 flex flex-col overflow-hidden bg-zinc-900">
+      <div className="p-4 md:p-6 border-b border-zinc-800 shrink-0 bg-zinc-900">
         <div className="flex items-start justify-between mb-4">
           <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded mr-2 md:hidden">
             <ChevronLeft size={20} />
           </button>
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl md:text-2xl font-semibold mb-2 text-zinc-100">{email.subject}</h2>
+            <h2 className="text-xl md:text-2xl font-semibold mb-3 text-zinc-100">{email.subject}</h2>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center font-bold border-zinc-600 border shrink-0">
                 {email.from[0]?.toUpperCase()}
@@ -652,91 +669,4 @@ function EmailView({ email, onBack, onDelete, onStar, onReply, onReplyAll, onFor
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
-            <button onClick={onStar} className="p-2 hover:bg-zinc-800 rounded">
-              <Star size={20} className={email.starred ? "fill-yellow-500 text-yellow-500" : "text-zinc-500"} />
-            </button>
-            <button onClick={onDelete} className="p-2 hover:bg-zinc-800 rounded">
-              <Trash2 size={20} className="text-zinc-500" />
-            </button>
-          </div>
-        </div>
-        <div className="text-sm text-zinc-500">{new Date(email.timestamp).toLocaleString()}</div>
-      </div>
-
-      <div className="flex-1 p-4 md:p-6 text-zinc-300 leading-relaxed overflow-y-auto">
-        {email.bodyHTML ? (
-          <div className="prose prose-invert max-w-none prose-sm md:prose-base [&_a]:text-blue-400 [&_a]:underline" dangerouslySetInnerHTML={{ __html: email.bodyHTML }} />
-        ) : (
-          <pre className="whitespace-pre-wrap font-sans text-sm md:text-base text-zinc-300">{email.bodyText}</pre>
-        )}
-      </div>
-
-      <div className="p-4 md:p-6 border-t border-zinc-800 flex flex-wrap gap-2 shrink-0">
-        <button onClick={onReply} className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded flex items-center gap-2 text-sm">
-          <ChevronLeft size={16} />
-          Reply
-        </button>
-        <button onClick={onReplyAll} className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-sm">
-          Reply All
-        </button>
-        <button onClick={onForward} className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded flex items-center gap-2 text-sm">
-          <ChevronRight size={16} />
-          Forward
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ComposeEmail({ onSend, onClose, replyTo, forwardOf }) {
-  const [to, setTo] = useState(replyTo ? replyTo.fromAddress : "");
-  const [subject, setSubject] = useState(
-    replyTo ? `Re: ${replyTo.subject}` : forwardOf ? `Fwd: ${forwardOf.subject}` : ""
-  );
-  const [body, setBody] = useState(() => {
-    if (replyTo) return `\n\n----- Original message -----\n${replyTo.bodyText || ""}`;
-    if (forwardOf) return `\n\n----- Forwarded message -----\n${forwardOf.bodyText || ""}`;
-    return "";
-  });
-  const [priority, setPriority] = useState("normal");
-  const [requestReceipt, setRequestReceipt] = useState(false);
-
-  return (
-    <div className="flex-1 flex flex-col bg-zinc-900 m-2 md:m-4 rounded-lg overflow-hidden border border-zinc-800">
-      <div className="p-4 border-b border-zinc-800 flex items-center justify-between shrink-0">
-        <h3 className="text-lg font-semibold text-zinc-100">New Message</h3>
-        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-100 text-3xl leading-none">×</button>
-      </div>
-      <div className="border-b border-zinc-800">
-        <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="To" className="w-full bg-transparent px-4 py-3 text-zinc-100 focus:outline-none" />
-      </div>
-      <div className="border-b border-zinc-800">
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="w-full bg-transparent px-4 py-3 text-zinc-100 focus:outline-none" />
-      </div>
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Compose your email…" className="flex-1 bg-transparent px-4 py-3 text-zinc-100 focus:outline-none resize-none" />
-      <div className="p-4 border-t border-zinc-800 space-y-4 shrink-0">
-        <div className="flex flex-wrap gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={priority === 'high'} onChange={(e) => setPriority(e.target.checked ? 'high' : 'normal')} className="rounded" />
-            <span className="text-zinc-300">High Priority</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={requestReceipt} onChange={(e) => setRequestReceipt(e.target.checked)} className="rounded" />
-            <span className="text-zinc-300">Request Read Receipt</span>
-          </label>
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <button className="p-2 hover:bg-zinc-800 rounded text-zinc-400" title="Attach file">
-              <Paperclip size={20} />
-            </button>
-          </div>
-          <button onClick={() => onSend(to, subject, body, { priority, requestReceipt })} className="px-6 py-2 bg-zinc-700 hover:bg-zinc-600 rounded flex items-center gap-2 font-medium text-zinc-100">
-            <Send size={16} />
-            Send
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+            <button onClick={onStar} className="p-2
