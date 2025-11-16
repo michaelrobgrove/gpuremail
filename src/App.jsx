@@ -1,9 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Star, Trash2, Menu, Search, Settings, Plus, Paperclip, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, RefreshCw, X } from 'lucide-react';
+import { Send, Star, Trash2, Menu, Search, Settings, Plus, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, RefreshCw, X, Reply, ReplyAll, Forward } from 'lucide-react';
 
-const API_BASE = "https://gpuremail-backend.onrender.com";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://gpuremail-backend.onrender.com";
 
-export default function GPureMail() {
+const THEMES = {
+  voyage: {
+    name: 'Voyage (Default)',
+    bg: 'from-slate-950 via-blue-950 to-purple-950',
+    sidebar: 'bg-slate-900/50 backdrop-blur-sm border-slate-700/50',
+    topbar: 'bg-slate-900/80 backdrop-blur-md border-slate-700/50',
+    card: 'bg-slate-800/50 backdrop-blur-sm border-slate-700/50',
+    button: 'bg-cyan-600 hover:bg-cyan-500',
+    buttonSecondary: 'bg-slate-700 hover:bg-slate-600',
+    accent: 'text-cyan-400',
+    accentHover: 'hover:text-cyan-300',
+    text: 'text-slate-100',
+    textSecondary: 'text-slate-400',
+    textMuted: 'text-slate-500',
+    border: 'border-slate-700',
+    hover: 'hover:bg-slate-800/50',
+    active: 'bg-slate-700/50',
+    input: 'bg-slate-800/50 border-slate-600 focus:border-cyan-500',
+  },
+  midnight: {
+    name: 'Midnight Blue',
+    bg: 'from-slate-950 to-blue-950',
+    sidebar: 'bg-slate-900 border-slate-800',
+    topbar: 'bg-slate-900 border-slate-800',
+    card: 'bg-slate-800 border-slate-700',
+    button: 'bg-blue-600 hover:bg-blue-500',
+    buttonSecondary: 'bg-slate-700 hover:bg-slate-600',
+    accent: 'text-blue-400',
+    accentHover: 'hover:text-blue-300',
+    text: 'text-slate-100',
+    textSecondary: 'text-slate-400',
+    textMuted: 'text-slate-500',
+    border: 'border-slate-700',
+    hover: 'hover:bg-slate-800',
+    active: 'bg-slate-800',
+    input: 'bg-slate-800 border-slate-700 focus:border-blue-500',
+  },
+  ember: {
+    name: 'Ember',
+    bg: 'from-slate-950 via-orange-950/20 to-red-950/20',
+    sidebar: 'bg-slate-900 border-slate-800',
+    topbar: 'bg-slate-900 border-slate-800',
+    card: 'bg-slate-800 border-slate-700',
+    button: 'bg-orange-600 hover:bg-orange-500',
+    buttonSecondary: 'bg-slate-700 hover:bg-slate-600',
+    accent: 'text-orange-400',
+    accentHover: 'hover:text-orange-300',
+    text: 'text-slate-100',
+    textSecondary: 'text-slate-400',
+    textMuted: 'text-slate-500',
+    border: 'border-slate-700',
+    hover: 'hover:bg-slate-800',
+    active: 'bg-slate-800',
+    input: 'bg-slate-800 border-slate-700 focus:border-orange-500',
+  },
+  forest: {
+    name: 'Forest',
+    bg: 'from-slate-950 via-emerald-950/20 to-teal-950/20',
+    sidebar: 'bg-slate-900 border-slate-800',
+    topbar: 'bg-slate-900 border-slate-800',
+    card: 'bg-slate-800 border-slate-700',
+    button: 'bg-emerald-600 hover:bg-emerald-500',
+    buttonSecondary: 'bg-slate-700 hover:bg-slate-600',
+    accent: 'text-emerald-400',
+    accentHover: 'hover:text-emerald-300',
+    text: 'text-slate-100',
+    textSecondary: 'text-slate-400',
+    textMuted: 'text-slate-500',
+    border: 'border-slate-700',
+    hover: 'hover:bg-slate-800',
+    active: 'bg-slate-800',
+    input: 'bg-slate-800 border-slate-700 focus:border-emerald-500',
+  }
+};
+
+export default function Voyage() {
   const [accounts, setAccounts] = useState([]);
   const [currentAccount, setCurrentAccount] = useState(null);
   const [emails, setEmails] = useState([]);
@@ -20,10 +95,12 @@ export default function GPureMail() {
   const [error, setError] = useState(null);
   const [replyMode, setReplyMode] = useState(null);
   const [forwardMode, setForwardMode] = useState(null);
-  const [theme, setTheme] = useState(localStorage.getItem('gpuremail_theme') || 'grey');
+  const [theme, setTheme] = useState(localStorage.getItem('voyage_theme') || 'voyage');
+
+  const t = THEMES[theme];
 
   useEffect(() => {
-    const stored = localStorage.getItem("gpuremail_accounts");
+    const stored = localStorage.getItem("voyage_accounts");
     if (stored) {
       const accts = JSON.parse(stored);
       setAccounts(accts);
@@ -62,7 +139,7 @@ export default function GPureMail() {
 
         const updated = [...accounts, newAccount];
         setAccounts(updated);
-        localStorage.setItem("gpuremail_accounts", JSON.stringify(updated));
+        localStorage.setItem("voyage_accounts", JSON.stringify(updated));
         setCurrentAccount(newAccount);
         setShowLogin(false);
         fetchFolders(newAccount);
@@ -120,9 +197,7 @@ export default function GPureMail() {
       
       clearTimeout(timeout);
       
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
       const data = await res.json();
       setEmails(data.emails || []);
@@ -224,7 +299,7 @@ export default function GPureMail() {
   const removeAccount = (accountId) => {
     const updated = accounts.filter((a) => a.id !== accountId);
     setAccounts(updated);
-    localStorage.setItem("gpuremail_accounts", JSON.stringify(updated));
+    localStorage.setItem("voyage_accounts", JSON.stringify(updated));
     if (currentAccount?.id === accountId) {
       setCurrentAccount(updated[0] || null);
       if (updated[0]) {
@@ -237,7 +312,7 @@ export default function GPureMail() {
     }
   };
 
-  const sendEmail = async (to, subject, body, options = {}) => {
+  const sendEmail = async (to, subject, body) => {
     try {
       await fetch(`${API_BASE}/api/emails/send`, {
         method: "POST",
@@ -246,13 +321,7 @@ export default function GPureMail() {
           "x-email": currentAccount.email,
           "x-password": atob(currentAccount.password),
         },
-        body: JSON.stringify({ 
-          to, 
-          subject, 
-          body,
-          priority: options.priority,
-          requestReceipt: options.requestReceipt
-        }),
+        body: JSON.stringify({ to, subject, body }),
       });
       setComposing(false);
       setReplyMode(null);
@@ -266,56 +335,48 @@ export default function GPureMail() {
 
   const changeTheme = (newTheme) => {
     setTheme(newTheme);
-    localStorage.setItem('gpuremail_theme', newTheme);
-  };
-
-  const getThemeColors = () => {
-    switch(theme) {
-      case 'navy': return 'from-zinc-900 to-blue-950';
-      case 'red': return 'from-zinc-900 to-red-950';
-      default: return '';
-    }
+    localStorage.setItem('voyage_theme', newTheme);
   };
 
   if (showLogin) {
-    return <LoginScreen onLogin={handleLogin} onCancel={() => setShowLogin(false)} loading={loading} error={error} hasAccounts={accounts.length > 0} />;
+    return <LoginScreen onLogin={handleLogin} onCancel={() => setShowLogin(false)} loading={loading} error={error} hasAccounts={accounts.length > 0} theme={t} />;
   }
 
   if (showSettings) {
-    return <SettingsScreen theme={theme} onThemeChange={changeTheme} onClose={() => setShowSettings(false)} />;
+    return <SettingsScreen theme={theme} onThemeChange={changeTheme} onClose={() => setShowSettings(false)} currentTheme={t} />;
   }
 
   return (
-    <div className={`flex h-screen bg-zinc-950 text-zinc-100 bg-gradient-to-br ${getThemeColors()}`}>
+    <div className={`flex h-screen ${t.text} bg-gradient-to-br ${t.bg}`}>
       {sidebarOpen && window.innerWidth <= 768 && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className={`${sidebarOpen ? 'w-64' : 'w-0 md:w-16'} fixed md:relative z-50 h-full bg-zinc-900 border-r border-zinc-800 transition-all duration-300 flex flex-col overflow-hidden`}>
-        <div className="p-4 flex items-center justify-between border-b border-zinc-800 shrink-0">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-zinc-800 rounded">
+      <div className={`${sidebarOpen ? 'w-64' : 'w-0 md:w-16'} fixed md:relative z-50 h-full ${t.sidebar} border-r ${t.border} transition-all duration-300 flex flex-col overflow-hidden`}>
+        <div className={`p-4 flex items-center justify-between border-b ${t.border} shrink-0`}>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`p-2 ${t.hover} rounded transition`}>
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          {sidebarOpen && <h1 className="text-xl font-bold">GPureMail</h1>}
+          {sidebarOpen && <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Voyage</h1>}
         </div>
 
         {sidebarOpen && accounts.length > 0 && (
-          <div className="p-4 border-b border-zinc-800 shrink-0">
+          <div className={`p-4 border-b ${t.border} shrink-0`}>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {accounts.map((account) => (
-                <div key={account.id} className={`flex items-center gap-2 p-2 rounded ${currentAccount?.id === account.id ? "bg-zinc-800" : "hover:bg-zinc-800"}`}>
+                <div key={account.id} className={`flex items-center gap-2 p-2 rounded transition ${currentAccount?.id === account.id ? t.active : t.hover}`}>
                   <button onClick={() => switchAccount(account)} className="flex-1 text-left flex items-center gap-2 min-w-0">
-                    <div className="w-8 h-8 bg-zinc-700 rounded-full flex items-center justify-center text-xs font-bold border border-zinc-600 shrink-0">
+                    <div className={`w-8 h-8 ${t.buttonSecondary} rounded-full flex items-center justify-center text-xs font-bold border ${t.border} shrink-0`}>
                       {account.email[0].toUpperCase()}
                     </div>
                     <span className="text-sm truncate">{account.email}</span>
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); removeAccount(account.id); }} className="p-1 hover:bg-zinc-700 rounded shrink-0">
+                  <button onClick={(e) => { e.stopPropagation(); removeAccount(account.id); }} className={`p-1 ${t.hover} rounded shrink-0 transition`}>
                     <LogOut size={14} />
                   </button>
                 </div>
               ))}
-              <button onClick={() => setShowLogin(true)} className="w-full flex items-center gap-2 p-2 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded">
+              <button onClick={() => setShowLogin(true)} className={`w-full flex items-center gap-2 p-2 text-sm ${t.textSecondary} ${t.accentHover} ${t.hover} rounded transition`}>
                 <UserPlus size={16} />
                 Add Account
               </button>
@@ -325,7 +386,7 @@ export default function GPureMail() {
 
         {sidebarOpen && (
           <div className="px-4 mb-4 mt-4 shrink-0">
-            <button onClick={() => { setComposing(true); setReplyMode(null); setForwardMode(null); if (window.innerWidth <= 768) setSidebarOpen(false); }} className="w-full bg-zinc-700 hover:bg-zinc-600 text-zinc-100 px-4 py-3 rounded-lg flex items-center gap-2 font-medium">
+            <button onClick={() => { setComposing(true); setReplyMode(null); setForwardMode(null); if (window.innerWidth <= 768) setSidebarOpen(false); }} className={`w-full ${t.button} ${t.text} px-4 py-3 rounded-lg flex items-center gap-2 font-medium transition`}>
               <Plus size={20} />
               Compose
             </button>
@@ -344,7 +405,7 @@ export default function GPureMail() {
                 fetchEmails(currentAccount, folder.name, 1);
                 if (window.innerWidth <= 768) setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded text-left ${selectedFolder === folder.name ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800'}`}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded text-left transition ${selectedFolder === folder.name ? `${t.active} ${t.text}` : `${t.textSecondary} ${t.hover}`}`}
             >
               <FolderOpen size={18} />
               {sidebarOpen && <span className="flex-1 text-sm truncate">{folder.name}</span>}
@@ -353,12 +414,12 @@ export default function GPureMail() {
         </nav>
 
         {sidebarOpen && (
-          <div className="p-4 border-t border-zinc-800 shrink-0">
-            <button onClick={() => setShowSettings(true)} className="w-full flex items-center gap-2 p-2 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded">
+          <div className={`p-4 border-t ${t.border} shrink-0`}>
+            <button onClick={() => setShowSettings(true)} className={`w-full flex items-center gap-2 p-2 text-sm ${t.textSecondary} ${t.accentHover} ${t.hover} rounded transition`}>
               <Settings size={16} />
               Settings
             </button>
-            <button onClick={() => { setPagination({ page: 1, totalPages: 1, hasMore: false }); fetchEmails(currentAccount, selectedFolder, 1); }} className="w-full flex items-center gap-2 p-2 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded mt-2">
+            <button onClick={() => { setPagination({ page: 1, totalPages: 1, hasMore: false }); fetchEmails(currentAccount, selectedFolder, 1); }} className={`w-full flex items-center gap-2 p-2 text-sm ${t.textSecondary} ${t.accentHover} ${t.hover} rounded mt-2 transition`}>
               <RefreshCw size={16} />
               Refresh
             </button>
@@ -367,10 +428,10 @@ export default function GPureMail() {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar currentAccount={currentAccount} sidebarOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+        <TopBar currentAccount={currentAccount} sidebarOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(!sidebarOpen)} theme={t} />
 
         {error && (
-          <div className="bg-red-900 border-b border-red-700 p-4 text-sm flex justify-between items-center">
+          <div className="bg-red-900/20 border-b border-red-500/50 p-4 text-sm flex justify-between items-center backdrop-blur-sm">
             <span>{error}</span>
             <button onClick={() => setError(null)} className="text-red-200 hover:text-white">×</button>
           </div>
@@ -384,6 +445,7 @@ export default function GPureMail() {
               selectedEmail={selectedEmail}
               unreadOnly={unreadOnly}
               pagination={pagination}
+              theme={t}
               onUnreadOnlyChange={(value) => {
                 setUnreadOnly(value);
                 setPagination({ page: 1, totalPages: 1, hasMore: false });
@@ -403,6 +465,7 @@ export default function GPureMail() {
           {selectedEmail && !composing && (
             <EmailView
               email={selectedEmail}
+              theme={t}
               onBack={() => setSelectedEmail(null)}
               onDelete={() => deleteEmail(selectedEmail)}
               onStar={() => toggleStar(selectedEmail)}
@@ -423,6 +486,7 @@ export default function GPureMail() {
 
           {composing && (
             <ComposeEmail
+              theme={t}
               onSend={sendEmail}
               onClose={() => { 
                 setComposing(false); 
@@ -439,23 +503,23 @@ export default function GPureMail() {
   );
 }
 
-function LoginScreen({ onLogin, onCancel, loading, error, hasAccounts }) {
+function LoginScreen({ onLogin, onCancel, loading, error, hasAccounts, theme }) {
   const [loginData, setLoginData] = useState({ email: "", password: "" });
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 rounded-lg p-8 w-full max-w-md border border-zinc-800">
-        <div className="flex justify-between items-start mb-4">
+    <div className={`min-h-screen bg-gradient-to-br ${theme.bg} flex items-center justify-center p-4`}>
+      <div className={`${theme.card} rounded-lg p-8 w-full max-w-md border ${theme.border}`}>
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-zinc-100 mb-2">GPureMail</h1>
-            <p className="text-zinc-400 text-sm">Sign in with PurelyMail</p>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">Voyage</h1>
+            <p className={`${theme.textSecondary} text-sm`}>Email for the limitless</p>
           </div>
           {hasAccounts && (
-            <button onClick={onCancel} className="text-zinc-400 hover:text-zinc-100 text-2xl">×</button>
+            <button onClick={onCancel} className={`${theme.textSecondary} ${theme.accentHover} text-2xl transition`}>×</button>
           )}
         </div>
         
-        {error && <div className="bg-red-900 text-red-100 p-3 rounded mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-red-900/20 text-red-200 p-3 rounded mb-4 text-sm border border-red-500/50">{error}</div>}
         
         <div className="space-y-4">
           <input
@@ -464,7 +528,7 @@ function LoginScreen({ onLogin, onCancel, loading, error, hasAccounts }) {
             type="email"
             placeholder="Email Address"
             disabled={loading}
-            className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500 disabled:opacity-50"
+            className={`w-full ${theme.input} ${theme.text} px-4 py-3 rounded border focus:outline-none transition disabled:opacity-50`}
           />
           <input
             value={loginData.password}
@@ -473,12 +537,12 @@ function LoginScreen({ onLogin, onCancel, loading, error, hasAccounts }) {
             placeholder="Password"
             disabled={loading}
             onKeyPress={(e) => e.key === 'Enter' && !loading && onLogin(loginData)}
-            className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500 disabled:opacity-50"
+            className={`w-full ${theme.input} ${theme.text} px-4 py-3 rounded border focus:outline-none transition disabled:opacity-50`}
           />
           <button
             onClick={() => onLogin(loginData)}
             disabled={loading}
-            className="w-full bg-zinc-700 hover:bg-zinc-600 text-zinc-100 py-3 rounded font-medium disabled:opacity-50 transition-colors"
+            className={`w-full ${theme.button} ${theme.text} py-3 rounded font-medium disabled:opacity-50 transition`}
           >
             {loading ? "Connecting..." : "Sign In"}
           </button>
@@ -488,31 +552,27 @@ function LoginScreen({ onLogin, onCancel, loading, error, hasAccounts }) {
   );
 }
 
-function SettingsScreen({ theme, onThemeChange, onClose }) {
+function SettingsScreen({ theme: themeKey, onThemeChange, onClose, currentTheme }) {
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 rounded-lg p-8 w-full max-w-md border border-zinc-800">
+    <div className={`min-h-screen bg-gradient-to-br ${currentTheme.bg} flex items-center justify-center p-4`}>
+      <div className={`${currentTheme.card} rounded-lg p-8 w-full max-w-md border ${currentTheme.border}`}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">Settings</h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100 text-3xl leading-none">×</button>
+          <button onClick={onClose} className={`${currentTheme.textSecondary} ${currentTheme.accentHover} text-3xl leading-none transition`}>×</button>
         </div>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Theme</label>
+            <label className="block text-sm font-medium mb-3">Theme</label>
             <div className="space-y-2">
-              {[
-                { id: 'grey', name: 'Dark Grey (Default)', gradient: 'from-zinc-800 to-zinc-900' },
-                { id: 'navy', name: 'Navy Blue', gradient: 'from-zinc-800 to-blue-950' },
-                { id: 'red', name: 'Deep Red', gradient: 'from-zinc-800 to-red-950' }
-              ].map(t => (
+              {Object.entries(THEMES).map(([key, t]) => (
                 <button
-                  key={t.id}
-                  onClick={() => onThemeChange(t.id)}
-                  className={`w-full p-3 rounded border ${theme === t.id ? 'border-zinc-500 bg-zinc-800' : 'border-zinc-700 bg-zinc-900'}`}
+                  key={key}
+                  onClick={() => onThemeChange(key)}
+                  className={`w-full p-3 rounded border transition ${themeKey === key ? `${currentTheme.active} border-cyan-500` : `${currentTheme.hover} ${currentTheme.border}`}`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 bg-gradient-to-br ${t.gradient} rounded`}></div>
+                    <div className={`w-10 h-10 bg-gradient-to-br ${t.bg} rounded border ${t.border}`}></div>
                     <span>{t.name}</span>
                   </div>
                 </button>
@@ -525,32 +585,32 @@ function SettingsScreen({ theme, onThemeChange, onClose }) {
   );
 }
 
-function TopBar({ currentAccount, sidebarOpen, onMenuClick }) {
+function TopBar({ currentAccount, sidebarOpen, onMenuClick, theme }) {
   return (
-    <div className="bg-zinc-900 border-b border-zinc-800 p-4 shrink-0">
+    <div className={`${theme.topbar} border-b ${theme.border} p-4 shrink-0`}>
       <div className="flex items-center gap-4">
         {!sidebarOpen && (
-          <button onClick={onMenuClick} className="p-2 hover:bg-zinc-800 rounded md:hidden">
+          <button onClick={onMenuClick} className={`p-2 ${theme.hover} rounded md:hidden transition`}>
             <Menu size={20} />
           </button>
         )}
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.textMuted}`} size={18} />
           <input
             type="text"
             placeholder="Search mail"
-            className="w-full bg-zinc-800 text-zinc-100 pl-10 pr-4 py-2 rounded-lg border border-zinc-700 focus:outline-none focus:border-zinc-500"
+            className={`w-full ${theme.input} ${theme.text} pl-10 pr-4 py-2 rounded-lg border focus:outline-none transition`}
           />
         </div>
         {currentAccount && (
-          <div className="text-sm text-zinc-400 hidden sm:block">{currentAccount.email}</div>
+          <div className={`text-sm ${theme.textSecondary} hidden sm:block`}>{currentAccount.email}</div>
         )}
       </div>
     </div>
   );
 }
 
-function EmailList({ emails, loading, selectedEmail, unreadOnly, pagination, onUnreadOnlyChange, onPageChange, setSelectedEmail }) {
+function EmailList({ emails, loading, selectedEmail, unreadOnly, pagination, onUnreadOnlyChange, onPageChange, setSelectedEmail, theme }) {
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -570,103 +630,209 @@ function EmailList({ emails, loading, selectedEmail, unreadOnly, pagination, onU
     }
   };
 
-  const formatFullDate = (timestamp) => {
-    return new Date(timestamp).toLocaleString([], { 
-      weekday: 'short', 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric', 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
-
   const unreadCount = emails.filter(e => e.unread).length;
 
   return (
-    <div className={`${selectedEmail ? 'hidden md:flex' : 'flex'} w-full md:w-96 border-r border-zinc-800 flex-col`}>
-      <div className="p-3 border-b border-zinc-800 shrink-0">
+    <div className={`${selectedEmail ? 'hidden md:flex' : 'flex'} w-full md:w-96 border-r ${theme.border} flex-col`}>
+      <div className={`p-3 border-b ${theme.border} shrink-0`}>
         <div className="flex gap-2 items-center">
           <button
             onClick={() => onUnreadOnlyChange(false)}
-            className={`px-3 py-1.5 rounded text-sm transition-colors ${!unreadOnly ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+            className={`px-3 py-1.5 rounded text-sm transition ${!unreadOnly ? `${theme.active} ${theme.text}` : `${theme.buttonSecondary} ${theme.textSecondary}`}`}
           >
             All
           </button>
           <button
             onClick={() => onUnreadOnlyChange(true)}
-            className={`px-3 py-1.5 rounded text-sm transition-colors ${unreadOnly ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+            className={`px-3 py-1.5 rounded text-sm transition ${unreadOnly ? `${theme.active} ${theme.text}` : `${theme.buttonSecondary} ${theme.textSecondary}`}`}
           >
-            Unread {unreadCount > 0 && <span className="ml-1 bg-zinc-600 px-1.5 py-0.5 rounded text-xs">{unreadCount}</span>}
+            Unread {unreadCount > 0 && <span className={`ml-1 ${theme.buttonSecondary} px-1.5 py-0.5 rounded text-xs`}>{unreadCount}</span>}
           </button>
         </div>
       </div>
       
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">Loading...</div>
+          <div className={`p-8 text-center ${theme.textMuted}`}>Loading...</div>
         ) : emails.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">No emails</div>
+          <div className={`p-8 text-center ${theme.textMuted}`}>No emails</div>
         ) : (
           emails.map((email) => (
             <div
               key={email.id}
               onClick={() => setSelectedEmail(email)}
-              className={`p-4 border-b border-zinc-800 hover:bg-zinc-900 cursor-pointer transition-colors ${
-                selectedEmail?.id === email.id ? 'bg-zinc-800' : email.unread ? 'bg-zinc-900' : ''
+              className={`p-4 border-b ${theme.border} ${theme.hover} cursor-pointer transition ${
+                selectedEmail?.id === email.id ? theme.active : email.unread ? theme.card : ''
               }`}
             >
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center font-bold text-sm border border-zinc-600">
+                  <div className={`w-10 h-10 ${theme.buttonSecondary} rounded-full flex items-center justify-center font-bold text-sm border ${theme.border}`}>
                     {email.from[0]?.toUpperCase()}
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <span className={`font-medium truncate ${email.unread ? "text-zinc-100" : "text-zinc-400"}`}>
+                    <span className={`font-medium truncate ${email.unread ? theme.text : theme.textSecondary}`}>
                       {email.from}
                     </span>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="text-xs text-zinc-500" title={formatFullDate(email.timestamp)}>
+                      <span className={`text-xs ${theme.textMuted}`}>
                         {formatDate(email.timestamp)}
                       </span>
                       {email.starred && <Star size={14} className="text-yellow-500 fill-yellow-500" />}
                     </div>
                   </div>
-                  <div className={`text-sm mb-1 truncate ${email.unread ? "font-medium text-zinc-200" : "text-zinc-500"}`}>
+                  <div className={`text-sm mb-1 truncate ${email.unread ? `font-medium ${theme.text}` : theme.textSecondary}`}>
                     {email.subject}
                   </div>
-                  <div className="text-sm text-zinc-600 truncate">{email.preview}</div>
+                  <div className={`text-sm ${theme.textMuted} truncate`}>{email.preview}</div>
                 </div>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {pagination.totalPages > 1 && (
+        <div className={`p-3 border-t ${theme.border} flex items-center justify-between shrink-0`}>
+          <button
+            onClick={() => onPageChange(pagination.page - 1)}
+            disabled={pagination.page === 1}
+            className={`p-2 rounded ${theme.hover} disabled:opacity-50 transition`}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className={`text-sm ${theme.textSecondary}`}>
+            Page {pagination.page} of {pagination.totalPages}
+          </span>
+          <button
+            onClick={() => onPageChange(pagination.page + 1)}
+            disabled={!pagination.hasMore}
+            className={`p-2 rounded ${theme.hover} disabled:opacity-50 transition`}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function EmailView({ email, onBack, onDelete, onStar, onReply, onReplyAll, onForward }) {
+function EmailView({ email, onBack, onDelete, onStar, onReply, onReplyAll, onForward, theme }) {
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-zinc-900">
-      <div className="p-4 md:p-6 border-b border-zinc-800 shrink-0 bg-zinc-900">
+    <div className={`flex-1 flex flex-col overflow-hidden ${theme.card}`}>
+      <div className={`p-4 md:p-6 border-b ${theme.border} shrink-0`}>
         <div className="flex items-start justify-between mb-4">
-          <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded mr-2 md:hidden">
+          <button onClick={onBack} className={`p-2 ${theme.hover} rounded mr-2 md:hidden transition`}>
             <ChevronLeft size={20} />
           </button>
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl md:text-2xl font-semibold mb-3 text-zinc-100">{email.subject}</h2>
+            <h2 className={`text-xl md:text-2xl font-semibold mb-3 ${theme.text}`}>{email.subject}</h2>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center font-bold border-zinc-600 border shrink-0">
+              <div className={`w-10 h-10 ${theme.buttonSecondary} rounded-full flex items-center justify-center font-bold border ${theme.border} shrink-0`}>
                 {email.from[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">
-                <div className="font-medium text-zinc-200 truncate">{email.from}</div>
-                <div className="text-sm text-zinc-500 truncate">{email.fromAddress}</div>
+                <div className={`font-medium ${theme.text} truncate`}>{email.from}</div>
+                <div className={`text-sm ${theme.textSecondary} truncate`}>{email.fromAddress}</div>
               </div>
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
-            <button onClick={onStar} className="p-2
+            <button onClick={onStar} className={`p-2 ${theme.hover} rounded transition`}>
+              <Star size={20} className={email.starred ? "text-yellow-500 fill-yellow-500" : ""} />
+            </button>
+            <button onClick={onDelete} className={`p-2 ${theme.hover} rounded transition`}>
+              <Trash2 size={20} />
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onReply} className={`${theme.buttonSecondary} px-4 py-2 rounded text-sm flex items-center gap-2 transition`}>
+            <Reply size={16} />
+            Reply
+          </button>
+          <button onClick={onReplyAll} className={`${theme.buttonSecondary} px-4 py-2 rounded text-sm flex items-center gap-2 transition`}>
+            <ReplyAll size={16} />
+            Reply All
+          </button>
+          <button onClick={onForward} className={`${theme.buttonSecondary} px-4 py-2 rounded text-sm flex items-center gap-2 transition`}>
+            <Forward size={16} />
+            Forward
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        {email.bodyHTML ? (
+          <div dangerouslySetInnerHTML={{ __html: email.bodyHTML }} className={`prose prose-invert max-w-none ${theme.text}`} />
+        ) : (
+          <pre className={`whitespace-pre-wrap font-sans ${theme.text}`}>{email.bodyText}</pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ComposeEmail({ onSend, onClose, replyTo, forwardOf, theme }) {
+  const [to, setTo] = useState(replyTo ? replyTo.fromAddress : "");
+  const [subject, setSubject] = useState(
+    replyTo ? `Re: ${replyTo.subject}` : 
+    forwardOf ? `Fwd: ${forwardOf.subject}` : 
+    ""
+  );
+  const [body, setBody] = useState(
+    replyTo ? `\n\n--- Original Message ---\nFrom: ${replyTo.from}\nSubject: ${replyTo.subject}\n\n${replyTo.bodyText || ""}` :
+    forwardOf ? `\n\n--- Forwarded Message ---\nFrom: ${forwardOf.from}\nSubject: ${forwardOf.subject}\n\n${forwardOf.bodyText || ""}` :
+    ""
+  );
+
+  return (
+    <div className={`flex-1 flex flex-col ${theme.card}`}>
+      <div className={`p-4 md:p-6 border-b ${theme.border} shrink-0`}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">New Message</h2>
+          <button onClick={onClose} className={`${theme.textSecondary} ${theme.accentHover} text-2xl transition`}>×</button>
+        </div>
+        <div className="space-y-3">
+          <input
+            type="email"
+            placeholder="To"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className={`w-full ${theme.input} px-4 py-2 rounded border focus:outline-none transition`}
+          />
+          <input
+            type="text"
+            placeholder="Subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className={`w-full ${theme.input} px-4 py-2 rounded border focus:outline-none transition`}
+          />
+        </div>
+      </div>
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto">
+        <textarea
+          placeholder="Write your message..."
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          className={`w-full h-full ${theme.input} p-4 rounded border focus:outline-none resize-none transition`}
+        />
+      </div>
+      <div className={`p-4 md:p-6 border-t ${theme.border} shrink-0`}>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onSend(to, subject, body)}
+            className={`${theme.button} px-6 py-2 rounded flex items-center gap-2 font-medium transition`}
+          >
+            <Send size={18} />
+            Send
+          </button>
+          <button onClick={onClose} className={`${theme.buttonSecondary} px-6 py-2 rounded transition`}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
