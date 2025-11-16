@@ -176,7 +176,6 @@ export default function Voyage() {
   const fetchEmails = async (account, folder, page = 1) => {
     setLoading(true);
     setError(null);
-    setEmails([]);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
@@ -313,8 +312,9 @@ export default function Voyage() {
   };
 
   const sendEmail = async (to, subject, body) => {
+    setLoading(true);
     try {
-      await fetch(`${API_BASE}/api/emails/send`, {
+      const res = await fetch(`${API_BASE}/api/emails/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -323,14 +323,23 @@ export default function Voyage() {
         },
         body: JSON.stringify({ to, subject, body }),
       });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      
       setComposing(false);
       setReplyMode(null);
       setForwardMode(null);
       fetchEmails(currentAccount, selectedFolder);
+      alert("Email sent successfully!");
     } catch (err) {
       console.error("Send failed:", err);
       alert("Failed to send email: " + err.message);
     }
+    setLoading(false);
   };
 
   const changeTheme = (newTheme) => {
