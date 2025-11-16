@@ -7,6 +7,8 @@ export default function GPureMail() {
   const [accounts, setAccounts] = useState([]);
   const [currentAccount, setCurrentAccount] = useState(null);
   const [emails, setEmails] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, hasMore: false });
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("INBOX");
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -373,8 +375,9 @@ export default function GPureMail() {
             <EmailList
               emails={emails}
               loading={loading}
-              setSelectedEmail={(emailObj) => {
-                setSelectedEmail(emailObj);
+              setSelectedEmail={async (emailObj) => {
+                const fullEmail = await fetchEmailBody(emailObj);
+                setSelectedEmail(fullEmail);
                 markRead(emailObj);
               }}
             />
