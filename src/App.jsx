@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Inbox, Star, Clock, Trash2, Menu, Search, Settings, Plus, Paperclip, Image, Smile, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, AlertOctagon, RefreshCw } from 'lucide-react';
+import { Send, Inbox, Star, Trash2, Menu, Search, Settings, Plus, Paperclip, ChevronLeft, ChevronRight, LogOut, UserPlus, FolderOpen, AlertOctagon, RefreshCw, X } from 'lucide-react';
 
 const API_BASE = "https://gpuremail-backend.onrender.com";
 
@@ -11,10 +11,11 @@ export default function GPureMail() {
   const [selectedFolder, setSelectedFolder] = useState("INBOX");
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [composing, setComposing] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [showLogin, setShowLogin] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [replyMode, setReplyMode] = useState(null);
   const [forwardMode, setForwardMode] = useState(null);
   const [theme, setTheme] = useState(localStorage.getItem('gpuremail_theme') || 'grey');
@@ -35,6 +36,7 @@ export default function GPureMail() {
 
   const handleLogin = async (credentials) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
@@ -57,10 +59,12 @@ export default function GPureMail() {
         setShowLogin(false);
         fetchFolders(newAccount);
         fetchEmails(newAccount, "INBOX");
+      } else {
+        setError("Login failed: " + (data.error || "Invalid credentials"));
       }
     } catch (err) {
-      console.error("Login failed:", err);
-      alert("Login failed. Check credentials.");
+      console.error("Login error:", err);
+      setError("Connection error. Check if backend is running.");
     }
     setLoading(false);
   };
@@ -76,12 +80,13 @@ export default function GPureMail() {
       const data = await res.json();
       setFolders(data.folders || []);
     } catch (err) {
-      console.error("Folders failed:", err);
+      console.error("Folders error:", err);
     }
   };
 
   const fetchEmails = async (account, folder) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/emails`, {
         method: "POST",
@@ -92,10 +97,16 @@ export default function GPureMail() {
           folder
         }),
       });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      
       const data = await res.json();
       setEmails(data || []);
     } catch (err) {
-      console.error("Fetch failed:", err);
+      console.error("Fetch error:", err);
+      setError("Failed to load emails: " + err.message);
     }
     setLoading(false);
   };
@@ -180,6 +191,7 @@ export default function GPureMail() {
     setSelectedFolder("INBOX");
     fetchFolders(account);
     fetchEmails(account, "INBOX");
+    if (window.innerWidth <= 768) setSidebarOpen(false);
   };
 
   const removeAccount = (accountId) => {
@@ -197,7 +209,7 @@ export default function GPureMail() {
     }
   };
 
-  const sendEmail = async (to, subject, body) => {
+  const sendEmail = async (to, subject, body, options = {}) => {
     try {
       await fetch(`${API_BASE}/api/emails/send`, {
         method: "POST",
@@ -206,7 +218,13 @@ export default function GPureMail() {
           "x-email": currentAccount.email,
           "x-password": atob(currentAccount.password),
         },
-        body: JSON.stringify({ to, subject, body }),
+        body: JSON.stringify({ 
+          to, 
+          subject, 
+          body,
+          priority: options.priority,
+          requestReceipt: options.requestReceipt
+        }),
       });
       setComposing(false);
       setReplyMode(null);
@@ -214,7 +232,7 @@ export default function GPureMail() {
       fetchEmails(currentAccount, selectedFolder);
     } catch (err) {
       console.error("Send failed:", err);
-      alert("Failed to send email");
+      alert("Failed to send email: " + err.message);
     }
   };
 
@@ -232,41 +250,41 @@ export default function GPureMail() {
   };
 
   if (showLogin) {
-    return <LoginScreen onLogin={handleLogin} loading={loading} />;
+    return <LoginScreen onLogin={handleLogin} loading={loading} error={error} />;
   }
 
   if (showSettings) {
-    return (
-      <SettingsScreen 
-        theme={theme} 
-        onThemeChange={changeTheme} 
-        onClose={() => setShowSettings(false)}
-      />
-    );
+    return <SettingsScreen theme={theme} onThemeChange={changeTheme} onClose={() => setShowSettings(false)} />;
   }
 
   return (
     <div className={`flex h-screen bg-zinc-950 text-zinc-100 bg-gradient-to-br ${getThemeColors()}`}>
-      <div className={`${sidebarOpen ? "w-64" : "w-16"} bg-zinc-900 border-r border-zinc-800 transition-all duration-300 flex flex-col`}>
-        <div className="p-4 flex items-center justify-between border-b border-zinc-800">
+      {/* Mobile Overlay */}
+      {sidebarOpen && window.innerWidth <= 768 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <div className={`${sidebarOpen ? 'w-64' : 'w-0 md:w-16'} fixed md:relative z-50 h-full bg-zinc-900 border-r border-zinc-800 transition-all duration-300 flex flex-col overflow-hidden`}>
+        <div className="p-4 flex items-center justify-between border-b border-zinc-800 shrink-0">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-zinc-800 rounded">
-            <Menu size={20} />
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           {sidebarOpen && <h1 className="text-xl font-bold">GPureMail</h1>}
         </div>
 
         {sidebarOpen && accounts.length > 0 && (
-          <div className="p-4 border-b border-zinc-800">
-            <div className="space-y-2">
+          <div className="p-4 border-b border-zinc-800 shrink-0">
+            <div className="space-y-2 max-h-40 overflow-y-auto">
               {accounts.map((account) => (
                 <div key={account.id} className={`flex items-center gap-2 p-2 rounded ${currentAccount?.id === account.id ? "bg-zinc-800" : "hover:bg-zinc-800"}`}>
-                  <button onClick={() => switchAccount(account)} className="flex-1 text-left flex items-center gap-2">
-                    <div className="w-8 h-8 bg-zinc-700 rounded-full flex items-center justify-center text-xs font-bold border border-zinc-600">
+                  <button onClick={() => switchAccount(account)} className="flex-1 text-left flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 bg-zinc-700 rounded-full flex items-center justify-center text-xs font-bold border border-zinc-600 shrink-0">
                       {account.email[0].toUpperCase()}
                     </div>
                     <span className="text-sm truncate">{account.email}</span>
                   </button>
-                  <button onClick={() => removeAccount(account.id)} className="p-1 hover:bg-zinc-700 rounded">
+                  <button onClick={(e) => { e.stopPropagation(); removeAccount(account.id); }} className="p-1 hover:bg-zinc-700 rounded shrink-0">
                     <LogOut size={14} />
                   </button>
                 </div>
@@ -280,8 +298,8 @@ export default function GPureMail() {
         )}
 
         {sidebarOpen && (
-          <div className="px-4 mb-4 mt-4">
-            <button onClick={() => { setComposing(true); setReplyMode(null); setForwardMode(null); }} className="w-full bg-zinc-700 hover:bg-zinc-600 text-zinc-100 px-4 py-3 rounded-lg flex items-center gap-2 font-medium">
+          <div className="px-4 mb-4 mt-4 shrink-0">
+            <button onClick={() => { setComposing(true); setReplyMode(null); setForwardMode(null); if (window.innerWidth <= 768) setSidebarOpen(false); }} className="w-full bg-zinc-700 hover:bg-zinc-600 text-zinc-100 px-4 py-3 rounded-lg flex items-center gap-2 font-medium">
               <Plus size={20} />
               Compose
             </button>
@@ -296,6 +314,7 @@ export default function GPureMail() {
                 setSelectedFolder(folder.name);
                 setSelectedEmail(null);
                 fetchEmails(currentAccount, folder.name);
+                if (window.innerWidth <= 768) setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded text-left ${selectedFolder === folder.name ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800'}`}
             >
@@ -306,7 +325,7 @@ export default function GPureMail() {
         </nav>
 
         {sidebarOpen && (
-          <div className="p-4 border-t border-zinc-800">
+          <div className="p-4 border-t border-zinc-800 shrink-0">
             <button onClick={() => setShowSettings(true)} className="w-full flex items-center gap-2 p-2 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded">
               <Settings size={16} />
               Settings
@@ -319,8 +338,19 @@ export default function GPureMail() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col">
-        <TopBar currentAccount={currentAccount} sidebarOpen={sidebarOpen} />
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopBar 
+          currentAccount={currentAccount} 
+          sidebarOpen={sidebarOpen} 
+          onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+        />
+
+        {error && (
+          <div className="bg-red-900 border-b border-red-700 p-4 text-sm">
+            {error}
+          </div>
+        )}
 
         <div className="flex-1 flex overflow-hidden">
           {!composing && !selectedEmail && (
@@ -343,6 +373,10 @@ export default function GPureMail() {
               onSpam={() => markAsSpam(selectedEmail)}
               onReply={() => {
                 setReplyMode(selectedEmail);
+                setComposing(true);
+              }}
+              onReplyAll={() => {
+                setReplyMode({ ...selectedEmail, replyAll: true });
                 setComposing(true);
               }}
               onForward={() => {
@@ -370,7 +404,7 @@ export default function GPureMail() {
   );
 }
 
-function LoginScreen({ onLogin, loading }) {
+function LoginScreen({ onLogin, loading, error }) {
   const [loginData, setLoginData] = useState({ email: "", password: "" });
 
   return (
@@ -378,6 +412,9 @@ function LoginScreen({ onLogin, loading }) {
       <div className="bg-zinc-900 rounded-lg p-8 w-full max-w-md border border-zinc-800">
         <h1 className="text-3xl font-bold text-zinc-100 mb-2 text-center">GPureMail</h1>
         <p className="text-zinc-400 text-center mb-6 text-sm">Sign in with your PurelyMail account</p>
+        
+        {error && <div className="bg-red-900 text-red-100 p-3 rounded mb-4 text-sm">{error}</div>}
+        
         <div className="space-y-4">
           <input
             value={loginData.email}
@@ -391,7 +428,7 @@ function LoginScreen({ onLogin, loading }) {
             onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
             type="password"
             placeholder="Password"
-            onKeyPress={(e) => e.key === 'Enter' && onLogin(loginData)}
+            onKeyPress={(e) => e.key === 'Enter' && !loading && onLogin(loginData)}
             className="w-full bg-zinc-800 text-zinc-100 px-4 py-3 rounded border border-zinc-700 focus:outline-none focus:border-zinc-500"
           />
           <button
@@ -413,42 +450,29 @@ function SettingsScreen({ theme, onThemeChange, onClose }) {
       <div className="bg-zinc-900 rounded-lg p-8 w-full max-w-md border border-zinc-800">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">Settings</h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100">×</button>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100 text-3xl leading-none">×</button>
         </div>
         
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">Theme</label>
             <div className="space-y-2">
-              <button
-                onClick={() => onThemeChange('grey')}
-                className={`w-full p-3 rounded border ${theme === 'grey' ? 'border-zinc-500 bg-zinc-800' : 'border-zinc-700 bg-zinc-900'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded"></div>
-                  <span>Dark Grey (Default)</span>
-                </div>
-              </button>
-              
-              <button
-                onClick={() => onThemeChange('navy')}
-                className={`w-full p-3 rounded border ${theme === 'navy' ? 'border-zinc-500 bg-zinc-800' : 'border-zinc-700 bg-zinc-900'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-zinc-800 to-blue-950 rounded"></div>
-                  <span>Navy Blue</span>
-                </div>
-              </button>
-              
-              <button
-                onClick={() => onThemeChange('red')}
-                className={`w-full p-3 rounded border ${theme === 'red' ? 'border-zinc-500 bg-zinc-800' : 'border-zinc-700 bg-zinc-900'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-zinc-800 to-red-950 rounded"></div>
-                  <span>Deep Red</span>
-                </div>
-              </button>
+              {[
+                { id: 'grey', name: 'Dark Grey (Default)', gradient: 'from-zinc-800 to-zinc-900' },
+                { id: 'navy', name: 'Navy Blue', gradient: 'from-zinc-800 to-blue-950' },
+                { id: 'red', name: 'Deep Red', gradient: 'from-zinc-800 to-red-950' }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => onThemeChange(t.id)}
+                  className={`w-full p-3 rounded border ${theme === t.id ? 'border-zinc-500 bg-zinc-800' : 'border-zinc-700 bg-zinc-900'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 bg-gradient-to-br ${t.gradient} rounded`}></div>
+                    <span>{t.name}</span>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -457,10 +481,15 @@ function SettingsScreen({ theme, onThemeChange, onClose }) {
   );
 }
 
-function TopBar({ currentAccount, sidebarOpen }) {
+function TopBar({ currentAccount, sidebarOpen, onMenuClick }) {
   return (
-    <div className="bg-zinc-900 border-b border-zinc-800 p-4">
+    <div className="bg-zinc-900 border-b border-zinc-800 p-4 shrink-0">
       <div className="flex items-center gap-4">
+        {!sidebarOpen && (
+          <button onClick={onMenuClick} className="p-2 hover:bg-zinc-800 rounded md:hidden">
+            <Menu size={20} />
+          </button>
+        )}
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
           <input
@@ -469,8 +498,8 @@ function TopBar({ currentAccount, sidebarOpen }) {
             className="w-full bg-zinc-800 text-zinc-100 pl-10 pr-4 py-2 rounded-lg border border-zinc-700 focus:outline-none focus:border-zinc-500"
           />
         </div>
-        {sidebarOpen && currentAccount && (
-          <div className="text-sm text-zinc-400">{currentAccount.email}</div>
+        {currentAccount && (
+          <div className="text-sm text-zinc-400 hidden sm:block">{currentAccount.email}</div>
         )}
       </div>
     </div>
@@ -499,17 +528,17 @@ function EmailList({ emails, loading, setSelectedEmail }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <span className={`font-medium ${email.unread ? "text-zinc-100" : "text-zinc-400"}`}>
+                  <span className={`font-medium truncate ${email.unread ? "text-zinc-100" : "text-zinc-400"}`}>
                     {email.from}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-zinc-500">
                       {new Date(email.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                     {email.starred && <Star size={14} className="text-yellow-500 fill-yellow-500" />}
                   </div>
                 </div>
-                <div className={`text-sm mb-1 ${email.unread ? "font-medium text-zinc-200" : "text-zinc-500"}`}>
+                <div className={`text-sm mb-1 truncate ${email.unread ? "font-medium text-zinc-200" : "text-zinc-500"}`}>
                   {email.subject}
                 </div>
                 <div className="text-sm text-zinc-600 truncate">{email.preview}</div>
@@ -522,31 +551,31 @@ function EmailList({ emails, loading, setSelectedEmail }) {
   );
 }
 
-function EmailView({ email, onBack, onDelete, onStar, onSpam, onReply, onForward }) {
+function EmailView({ email, onBack, onDelete, onStar, onSpam, onReply, onReplyAll, onForward }) {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <div className="p-6 border-b border-zinc-800">
+      <div className="p-4 md:p-6 border-b border-zinc-800 shrink-0">
         <div className="flex items-start justify-between mb-4">
-          <button onClick={onBack} className="md:hidden p-2 hover:bg-zinc-800 rounded">
+          <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded mr-2">
             <ChevronLeft size={20} />
           </button>
-          <div className="flex-1">
-            <h2 className="text-2xl font-semibold mb-2 text-zinc-100">{email.subject}</h2>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl md:text-2xl font-semibold mb-2 text-zinc-100">{email.subject}</h2>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center font-bold border-zinc-600 border">
+              <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center font-bold border-zinc-600 border shrink-0">
                 {email.from[0]}
               </div>
-              <div>
-                <div className="font-medium text-zinc-200">{email.from}</div>
-                <div className="text-sm text-zinc-500">{email.fromAddress}</div>
+              <div className="min-w-0">
+                <div className="font-medium text-zinc-200 truncate">{email.from}</div>
+                <div className="text-sm text-zinc-500 truncate">{email.fromAddress}</div>
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             <button onClick={onStar} className="p-2 hover:bg-zinc-800 rounded">
               <Star size={20} className={email.starred ? "fill-yellow-500 text-yellow-500" : "text-zinc-500"} />
             </button>
-            <button onClick={onSpam} className="p-2 hover:bg-zinc-800 rounded">
+            <button onClick={onSpam} className="p-2 hover:bg-zinc-800 rounded hidden md:block">
               <AlertOctagon size={20} className="text-zinc-500" />
             </button>
             <button onClick={onDelete} className="p-2 hover:bg-zinc-800 rounded">
@@ -557,20 +586,23 @@ function EmailView({ email, onBack, onDelete, onStar, onSpam, onReply, onForward
         <div className="text-sm text-zinc-500">{new Date(email.timestamp).toLocaleString()}</div>
       </div>
 
-      <div className="flex-1 p-6 text-zinc-300 leading-relaxed overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 text-zinc-300 leading-relaxed overflow-y-auto">
         {email.bodyHTML ? (
-          <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: email.bodyHTML }} />
+          <div className="prose prose-invert max-w-none prose-sm md:prose-base" dangerouslySetInnerHTML={{ __html: email.bodyHTML }} />
         ) : (
-          <pre className="whitespace-pre-wrap font-sans">{email.bodyText}</pre>
+          <pre className="whitespace-pre-wrap font-sans text-sm md:text-base">{email.bodyText}</pre>
         )}
       </div>
 
-      <div className="p-6 border-t border-zinc-800 flex gap-2">
-        <button onClick={onReply} className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded flex items-center gap-2">
+      <div className="p-4 md:p-6 border-t border-zinc-800 flex flex-wrap gap-2 shrink-0">
+        <button onClick={onReply} className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded flex items-center gap-2 text-sm">
           <ChevronLeft size={16} />
           Reply
         </button>
-        <button onClick={onForward} className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded flex items-center gap-2">
+        <button onClick={onReplyAll} className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-sm">
+          Reply All
+        </button>
+        <button onClick={onForward} className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded flex items-center gap-2 text-sm">
           <ChevronRight size={16} />
           Forward
         </button>
@@ -589,12 +621,14 @@ function ComposeEmail({ onSend, onClose, replyTo, forwardOf }) {
     if (forwardOf) return `\n\n----- Forwarded message -----\n${forwardOf.bodyText || ""}`;
     return "";
   });
+  const [priority, setPriority] = useState("normal");
+  const [requestReceipt, setRequestReceipt] = useState(false);
 
   return (
-    <div className="flex-1 flex flex-col bg-zinc-900 m-4 rounded-lg overflow-hidden border border-zinc-800">
-      <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+    <div className="flex-1 flex flex-col bg-zinc-900 m-2 md:m-4 rounded-lg overflow-hidden border border-zinc-800">
+      <div className="p-4 border-b border-zinc-800 flex items-center justify-between shrink-0">
         <h3 className="text-lg font-semibold text-zinc-100">New Message</h3>
-        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-100 text-2xl">×</button>
+        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-100 text-3xl leading-none">×</button>
       </div>
       <div className="border-b border-zinc-800">
         <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="To" className="w-full bg-transparent px-4 py-3 text-zinc-100 focus:outline-none" />
@@ -603,22 +637,28 @@ function ComposeEmail({ onSend, onClose, replyTo, forwardOf }) {
         <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="w-full bg-transparent px-4 py-3 text-zinc-100 focus:outline-none" />
       </div>
       <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Compose your email…" className="flex-1 bg-transparent px-4 py-3 text-zinc-100 focus:outline-none resize-none" />
-      <div className="p-4 border-t border-zinc-800 flex items-center justify-between">
-        <div className="flex gap-2">
-          <button className="p-2 hover:bg-zinc-800 rounded text-zinc-400">
-            <Paperclip size={20} />
-          </button>
-          <button className="p-2 hover:bg-zinc-800 rounded text-zinc-400">
-            <Image size={20} />
-          </button>
-          <button className="p-2 hover:bg-zinc-800 rounded text-zinc-400">
-            <Smile size={20} />
+      <div className="p-4 border-t border-zinc-800 space-y-4 shrink-0">
+        <div className="flex flex-wrap gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={priority === 'high'} onChange={(e) => setPriority(e.target.checked ? 'high' : 'normal')} className="rounded" />
+            <span className="text-zinc-300">High Priority</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={requestReceipt} onChange={(e) => setRequestReceipt(e.target.checked)} className="rounded" />
+            <span className="text-zinc-300">Request Read Receipt</span>
+          </label>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-2">
+            <button className="p-2 hover:bg-zinc-800 rounded text-zinc-400" title="Attach file">
+              <Paperclip size={20} />
+            </button>
+          </div>
+          <button onClick={() => onSend(to, subject, body, { priority, requestReceipt })} className="px-6 py-2 bg-zinc-700 hover:bg-zinc-600 rounded flex items-center gap-2 font-medium text-zinc-100">
+            <Send size={16} />
+            Send
           </button>
         </div>
-        <button onClick={() => onSend(to, subject, body)} className="px-6 py-2 bg-zinc-700 hover:bg-zinc-600 rounded flex items-center gap-2 font-medium text-zinc-100">
-          <Send size={16} />
-          Send
-        </button>
       </div>
     </div>
   );
