@@ -212,8 +212,9 @@ export default function GPureMail() {
     setSelectedEmail(null);
     setComposing(false);
     setSelectedFolder("INBOX");
+    setPagination({ page: 1, totalPages: 1, hasMore: false });
     fetchFolders(account);
-    fetchEmails(account, "INBOX");
+    fetchEmails(account, "INBOX", 1);
     if (window.innerWidth <= 768) setSidebarOpen(false);
   };
 
@@ -224,8 +225,9 @@ export default function GPureMail() {
     if (currentAccount?.id === accountId) {
       setCurrentAccount(updated[0] || null);
       if (updated[0]) {
+        setPagination({ page: 1, totalPages: 1, hasMore: false });
         fetchFolders(updated[0]);
-        fetchEmails(updated[0], "INBOX");
+        fetchEmails(updated[0], "INBOX", 1);
       } else {
         setShowLogin(true);
       }
@@ -334,7 +336,8 @@ export default function GPureMail() {
               onClick={() => {
                 setSelectedFolder(folder.name);
                 setSelectedEmail(null);
-                fetchEmails(currentAccount, folder.name);
+                setPagination({ page: 1, totalPages: 1, hasMore: false });
+                fetchEmails(currentAccount, folder.name, 1);
                 if (window.innerWidth <= 768) setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded text-left ${selectedFolder === folder.name ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800'}`}
@@ -351,7 +354,7 @@ export default function GPureMail() {
               <Settings size={16} />
               Settings
             </button>
-            <button onClick={() => fetchEmails(currentAccount, selectedFolder)} className="w-full flex items-center gap-2 p-2 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded mt-2">
+            <button onClick={() => { setPagination({ page: 1, totalPages: 1, hasMore: false }); fetchEmails(currentAccount, selectedFolder, 1); }} className="w-full flex items-center gap-2 p-2 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded mt-2">
               <RefreshCw size={16} />
               Refresh
             </button>
@@ -370,10 +373,21 @@ export default function GPureMail() {
         )}
 
         <div className="flex-1 flex overflow-hidden">
-          {!composing && !selectedEmail && (
+          {!composing && (
             <EmailList
               emails={emails}
               loading={loading}
+              selectedEmail={selectedEmail}
+              unreadOnly={unreadOnly}
+              pagination={pagination}
+              onUnreadOnlyChange={(value) => {
+                setUnreadOnly(value);
+                setPagination({ page: 1, totalPages: 1, hasMore: false });
+                fetchEmails(currentAccount, selectedFolder, 1);
+              }}
+              onPageChange={(newPage) => {
+                fetchEmails(currentAccount, selectedFolder, newPage);
+              }}
               setSelectedEmail={async (emailObj) => {
                 const fullEmail = await fetchEmailBody(emailObj);
                 setSelectedEmail(fullEmail);
@@ -532,64 +546,104 @@ function TopBar({ currentAccount, sidebarOpen, onMenuClick }) {
   );
 }
 
-function EmailList({ emails, loading, setSelectedEmail }) {
+function EmailList({ emails, loading, selectedEmail, unreadOnly, onUnreadOnlyChange, setSelectedEmail }) {
+  const formatDate = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (days === 0) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (days === 1) {
+      return 'Yesterday';
+    } else if (days < 7) {
+      return date.toLocaleDateString([], { weekday: 'short' });
+    } else if (date.getFullYear() === now.getFullYear()) {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  };
+
   return (
-    <div className="w-full md:w-96 border-r border-zinc-800 overflow-y-auto">
-      {loading ? (
-        <div className="p-8 text-center text-zinc-500">Loading...</div>
-      ) : emails.length === 0 ? (
-        <div className="p-8 text-center text-zinc-500">No emails</div>
-      ) : (
-        emails.map((email) => (
-          <div
-            key={email.id}
-            onClick={() => setSelectedEmail(email)}
-            className={`p-4 border-b border-zinc-800 hover:bg-zinc-900 cursor-pointer ${email.unread ? "bg-zinc-900" : ""}`}
+    <div className={`${selectedEmail ? 'hidden md:flex' : 'flex'} w-full md:w-96 border-r border-zinc-800 flex-col`}>
+      <div className="p-3 border-b border-zinc-800 shrink-0">
+        <div className="flex gap-2">
+          <button
+            onClick={() => onUnreadOnlyChange(false)}
+            className={`px-3 py-1.5 rounded text-sm transition-colors ${!unreadOnly ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
           >
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center font-bold text-sm border border-zinc-600">
-                  {email.from[0]}
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`font-medium truncate ${email.unread ? "text-zinc-100" : "text-zinc-400"}`}>
-                    {email.from}
-                  </span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-zinc-500">
-                      {new Date(email.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    {email.starred && <Star size={14} className="text-yellow-500 fill-yellow-500" />}
+            All
+          </button>
+          <button
+            onClick={() => onUnreadOnlyChange(true)}
+            className={`px-3 py-1.5 rounded text-sm transition-colors ${unreadOnly ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+          >
+            Unread
+          </button>
+        </div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="p-8 text-center text-zinc-500">Loading...</div>
+        ) : emails.length === 0 ? (
+          <div className="p-8 text-center text-zinc-500">No emails</div>
+        ) : (
+          emails.map((email) => (
+            <div
+              key={email.id}
+              onClick={() => setSelectedEmail(email)}
+              className={`p-4 border-b border-zinc-800 hover:bg-zinc-900 cursor-pointer transition-colors ${
+                selectedEmail?.id === email.id ? 'bg-zinc-800' : email.unread ? 'bg-zinc-900' : ''
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center font-bold text-sm border border-zinc-600">
+                    {email.from[0]?.toUpperCase()}
                   </div>
                 </div>
-                <div className={`text-sm mb-1 truncate ${email.unread ? "font-medium text-zinc-200" : "text-zinc-500"}`}>
-                  {email.subject}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-medium truncate ${email.unread ? "text-zinc-100" : "text-zinc-400"}`}>
+                      {email.from}
+                    </span>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="text-xs text-zinc-500">
+                        {formatDate(email.timestamp)}
+                      </span>
+                      {email.starred && <Star size={14} className="text-yellow-500 fill-yellow-500" />}
+                    </div>
+                  </div>
+                  <div className={`text-sm mb-1 truncate ${email.unread ? "font-medium text-zinc-200" : "text-zinc-500"}`}>
+                    {email.subject}
+                  </div>
+                  <div className="text-sm text-zinc-600 truncate">{email.preview}</div>
                 </div>
-                <div className="text-sm text-zinc-600 truncate">{email.preview}</div>
               </div>
             </div>
-          </div>
-        ))
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }
 
 function EmailView({ email, onBack, onDelete, onStar, onReply, onReplyAll, onForward }) {
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto">
+    <div className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
       <div className="p-4 md:p-6 border-b border-zinc-800 shrink-0">
         <div className="flex items-start justify-between mb-4">
-          <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded mr-2">
+          <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded mr-2 md:hidden">
             <ChevronLeft size={20} />
           </button>
           <div className="flex-1 min-w-0">
             <h2 className="text-xl md:text-2xl font-semibold mb-2 text-zinc-100">{email.subject}</h2>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center font-bold border-zinc-600 border shrink-0">
-                {email.from[0]}
+                {email.from[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">
                 <div className="font-medium text-zinc-200 truncate">{email.from}</div>
@@ -611,9 +665,9 @@ function EmailView({ email, onBack, onDelete, onStar, onReply, onReplyAll, onFor
 
       <div className="flex-1 p-4 md:p-6 text-zinc-300 leading-relaxed overflow-y-auto">
         {email.bodyHTML ? (
-          <div className="prose prose-invert max-w-none prose-sm md:prose-base" dangerouslySetInnerHTML={{ __html: email.bodyHTML }} />
+          <div className="prose prose-invert max-w-none prose-sm md:prose-base [&_a]:text-blue-400 [&_a]:underline" dangerouslySetInnerHTML={{ __html: email.bodyHTML }} />
         ) : (
-          <pre className="whitespace-pre-wrap font-sans text-sm md:text-base">{email.bodyText}</pre>
+          <pre className="whitespace-pre-wrap font-sans text-sm md:text-base text-zinc-300">{email.bodyText}</pre>
         )}
       </div>
 
