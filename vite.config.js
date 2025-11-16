@@ -6,9 +6,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://your-worker.workers.dev',
+        target: 'https://gpuremail-backend.onrender.com',
         changeOrigin: true
       }
     }
   }
+
 })
