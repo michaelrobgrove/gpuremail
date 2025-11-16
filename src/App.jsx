@@ -2,10 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Mail, Send, Inbox, Star, Clock, Trash2, Menu, Search, Settings, Plus, Paperclip, Image, Smile, ChevronLeft, ChevronRight, LogOut, UserPlus } from 'lucide-react';
 
 const API_BASE = '/api';
-const IMAP_HOST = 'imap.purelymail.com';
-const IMAP_PORT = '993';
-const SMTP_HOST = 'smtp.purelymail.com';
-const SMTP_PORT = '587';
 
 export default function GPureMail() {
   const [accounts, setAccounts] = useState([]);
@@ -44,11 +40,10 @@ export default function GPureMail() {
       const data = await res.json();
       
       if (data.success) {
-        // Store encrypted credentials in browser
         const newAccount = { 
           id: crypto.randomUUID(),
           email: credentials.email,
-          password: btoa(credentials.password) // Base64 encode for storage
+          password: btoa(credentials.password)
         };
         const updated = [...accounts, newAccount];
         setAccounts(updated);
