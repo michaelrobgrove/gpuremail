@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Send, Inbox, Star, Clock, Trash2, Menu, Search, Settings, Plus, Paperclip, Image, Smile, ChevronLeft, ChevronRight, LogOut, UserPlus } from 'lucide-react';
 
-const API_BASE = '/api';
+const API_BASE = 'https://gpuremail-backend.onrender.com/api';
 
 export default function GPureMail() {
   const [accounts, setAccounts] = useState([]);
