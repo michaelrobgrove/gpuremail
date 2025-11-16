@@ -8,6 +8,7 @@ export default function GPureMail() {
   const [currentAccount, setCurrentAccount] = useState(null);
   const [emails, setEmails] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, hasMore: false });
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("INBOX");
   const [selectedEmail, setSelectedEmail] = useState(null);
